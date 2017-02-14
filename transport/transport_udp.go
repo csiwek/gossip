@@ -57,8 +57,8 @@ func (udp *Udp) Send(addr string, msg base.SipMessage) error {
                         return err
                 }
                 defer conn.Close()
+		_, err = conn.Write([]byte(msg.String()))
         } else {
-
                 _, err = udp.conn.WriteTo([]byte(msg.String()), raddr)
         }
         return err
