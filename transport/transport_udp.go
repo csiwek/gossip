@@ -14,6 +14,7 @@ type Udp struct {
 	listeningPoints []*net.UDPConn
 	output          chan base.SipMessage
 	stop            bool
+	conn            *net.UDPConn
 }
 
 func NewUdp(output chan base.SipMessage) (*Udp, error) {
@@ -30,6 +31,7 @@ func (udp *Udp) Listen(address string) error {
 	lp, err := net.ListenUDP("udp", addr)
 
 	if err == nil {
+		udp.conn = lp
 		udp.listeningPoints = append(udp.listeningPoints, lp)
 		go udp.listen(lp)
 	}
@@ -42,23 +44,26 @@ func (udp *Udp) IsStreamed() bool {
 }
 
 func (udp *Udp) Send(addr string, msg base.SipMessage) error {
-	log.Debug("Sending message %s to %s", msg.Short(), addr)
-	raddr, err := net.ResolveUDPAddr("udp", addr)
-	if err != nil {
-		return err
-	}
+        log.Debug("Sending message %s to %s", msg.Short(), addr)
 
-	var conn *net.UDPConn
-	conn, err = net.DialUDP("udp", nil, raddr)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
+        raddr, err := net.ResolveUDPAddr("udp", addr)
+        if err != nil {
+                return err
+        }
+        if udp.conn == nil {
+                var conn *net.UDPConn
+                conn, err = net.DialUDP("udp", nil, raddr)
+                if err != nil {
+                        return err
+                }
+                defer conn.Close()
+        } else {
 
-	_, err = conn.Write([]byte(msg.String()))
-
-	return err
+                _, err = udp.conn.WriteTo([]byte(msg.String()), raddr)
+        }
+        return err
 }
+
 
 func (udp *Udp) listen(conn *net.UDPConn) {
 	log.Info("Begin listening for UDP on address %s", conn.LocalAddr())
